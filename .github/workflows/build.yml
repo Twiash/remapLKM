@@ -107,9 +107,8 @@ jobs:
         ./scripts/config --disable CONFIG_SHADOW_CALL_STACK
         make ARCH=arm64 olddefconfig
         
-        # Build vmlinux để hệ thống tự động sinh file Module.symvers (Chứa CRC checksum)
-        make ARCH=arm64 LLVM=1 CROSS_COMPILE=aarch64-linux-gnu- vmlinux -j$(nproc)
-        make ARCH=arm64 LLVM=1 CROSS_COMPILE=aarch64-linux-gnu- modules_prepare
+        # Build vmlinux và in-tree modules để hệ thống sinh file Module.symvers hoàn chỉnh
+        make ARCH=arm64 LLVM=1 CROSS_COMPILE=aarch64-linux-gnu- all -j$(nproc)
 
     - name: Cài đặt Toolchain (Chỉ chạy khi đã có Cache)
       if: steps.cache-kernel.outputs.cache-hit == 'true' && github.event.inputs.update_source == 'false'
