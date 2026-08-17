@@ -67,7 +67,7 @@ jobs:
         if [ "${{ matrix.version }}" == "5.15" ]; then echo "BRANCH=android13-5.15" >> $GITHUB_ENV; fi
         if [ "${{ matrix.version }}" == "6.1" ]; then echo "BRANCH=android14-6.1" >> $GITHUB_ENV; fi
         if [ "${{ matrix.version }}" == "6.6" ]; then echo "BRANCH=android15-6.6" >> $GITHUB_ENV; fi
-        if [ "${{ matrix.version }}" == "6.12" ]; then echo "BRANCH=common-android15-6.12" >> $GITHUB_ENV; fi
+        if [ "${{ matrix.version }}" == "6.12" ]; then echo "BRANCH=android16-6.12" >> $GITHUB_ENV; fi
         # Lưu ý: nhánh 6.12 của Google có thể thay đổi tên tuỳ thời điểm, có thể sửa lại nếu Google đổi tên nhánh.
 
     - name: Kích hoạt Cache (Khôi phục Source Kernel đã tải)
