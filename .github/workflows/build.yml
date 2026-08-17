@@ -89,7 +89,7 @@ jobs:
         git clone --depth=1 -b ${{ env.BRANCH }} https://android.googlesource.com/kernel/common kernel_src
         
         # Cài đặt Toolchain cơ bản
-        sudo apt-get update && sudo apt-get install -y bc bison flex clang llvm lld gcc-aarch64-linux-gnu
+        sudo apt-get update && sudo apt-get install -y bc bison flex clang llvm lld gcc-aarch64-linux-gnu libdw-dev libelf-dev
         
         cd kernel_src
         # Thiết lập Kernel Headers (gki_defconfig)
@@ -100,7 +100,7 @@ jobs:
       if: steps.cache-kernel.outputs.cache-hit == 'true' && github.event.inputs.update_source == 'false'
       run: |
         sudo apt-get update
-        sudo apt-get install -y bc bison flex clang llvm lld gcc-aarch64-linux-gnu
+        sudo apt-get install -y bc bison flex clang llvm lld gcc-aarch64-linux-gnu libdw-dev libelf-dev
 
     - name: Biên dịch Module LKM (.ko)
       run: |
