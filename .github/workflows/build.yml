@@ -94,6 +94,21 @@ jobs:
         cd kernel_src
         # Thiết lập Kernel Headers (gki_defconfig)
         make ARCH=arm64 gki_defconfig
+        
+        # Tắt KASAN và LTO để build siêu tốc và khớp CRC với điện thoại thực tế
+        ./scripts/config --disable CONFIG_LTO_CLANG
+        ./scripts/config --disable CONFIG_LTO_CLANG_FULL
+        ./scripts/config --disable CONFIG_LTO_CLANG_THIN
+        ./scripts/config --enable CONFIG_LTO_NONE
+        ./scripts/config --disable CONFIG_KASAN
+        ./scripts/config --disable CONFIG_KASAN_HW_TAGS
+        ./scripts/config --disable CONFIG_KASAN_SW_TAGS
+        ./scripts/config --disable CONFIG_KASAN_GENERIC
+        ./scripts/config --disable CONFIG_SHADOW_CALL_STACK
+        make ARCH=arm64 olddefconfig
+        
+        # Build vmlinux để hệ thống tự động sinh file Module.symvers (Chứa CRC checksum)
+        make ARCH=arm64 LLVM=1 CROSS_COMPILE=aarch64-linux-gnu- vmlinux -j$(nproc)
         make ARCH=arm64 LLVM=1 CROSS_COMPILE=aarch64-linux-gnu- modules_prepare
 
     - name: Cài đặt Toolchain (Chỉ chạy khi đã có Cache)
