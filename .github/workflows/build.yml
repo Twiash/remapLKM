@@ -73,7 +73,7 @@ jobs:
     - name: Kích hoạt Cache (Khôi phục Source Kernel đã tải)
       id: cache-kernel
       if: ${{ github.event.inputs.update_source == 'false' }}
-      uses: actions/cache@v4
+      uses: actions/cache/restore@v4
       with:
         path: kernel_workspace
         key: kernel-source-${{ matrix.version }}-${{ env.BRANCH }}
@@ -109,6 +109,13 @@ jobs:
         
         # Build vmlinux và in-tree modules để hệ thống sinh file Module.symvers hoàn chỉnh
         make ARCH=arm64 LLVM=1 CROSS_COMPILE=aarch64-linux-gnu- all -j$(nproc)
+
+    - name: Lưu Cache Kernel Ngay Lập Tức (Chống tải lại nếu bước sau lỗi)
+      if: steps.cache-kernel.outputs.cache-hit != 'true' || github.event.inputs.update_source == 'true'
+      uses: actions/cache/save@v4
+      with:
+        path: kernel_workspace
+        key: kernel-source-${{ matrix.version }}-${{ env.BRANCH }}
 
     - name: Cài đặt Toolchain (Chỉ chạy khi đã có Cache)
       if: steps.cache-kernel.outputs.cache-hit == 'true' && github.event.inputs.update_source == 'false'
