@@ -59,7 +59,7 @@ jobs:
     
     steps:
     - name: Clone Source Code LKM của bạn
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Ánh xạ Phiên bản với Nhánh GKI của Google
       run: |
@@ -73,7 +73,7 @@ jobs:
     - name: Kích hoạt Cache (Khôi phục Source Kernel đã tải)
       id: cache-kernel
       if: ${{ github.event.inputs.update_source == 'false' }}
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: kernel_workspace
         key: kernel-source-${{ matrix.version }}-${{ env.BRANCH }}
@@ -107,7 +107,7 @@ jobs:
         make -C kernel_workspace/kernel_src M=$GITHUB_WORKSPACE ARCH=arm64 LLVM=1 CROSS_COMPILE=aarch64-linux-gnu- modules
 
     - name: Upload File .ko lên Github
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: touch_remap_${{ matrix.version }}.ko
         path: touch_remap.ko
