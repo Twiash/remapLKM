@@ -1,0 +1,113 @@
+name: Build Touch Remap LKM
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_5_10:
+        description: 'Build for GKI 5.10'
+        type: boolean
+        default: false
+      build_5_15:
+        description: 'Build for GKI 5.15'
+        type: boolean
+        default: false
+      build_6_1:
+        description: 'Build for GKI 6.1'
+        type: boolean
+        default: false
+      build_6_6:
+        description: 'Build for GKI 6.6'
+        type: boolean
+        default: false
+      build_6_12:
+        description: 'Build for GKI 6.12'
+        type: boolean
+        default: true
+      update_source:
+        description: 'Force update Kernel Source (Bỏ qua Cache, tải mới hoàn toàn)'
+        type: boolean
+        default: false
+
+jobs:
+  prepare-matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      versions: ${{ steps.set-matrix.outputs.versions }}
+    steps:
+      - name: Thiết lập danh sách Kernel Version (Matrix)
+        id: set-matrix
+        run: |
+          versions=()
+          if [ "${{ github.event.inputs.build_5_10 }}" == "true" ]; then versions+=('"5.10"'); fi
+          if [ "${{ github.event.inputs.build_5_15 }}" == "true" ]; then versions+=('"5.15"'); fi
+          if [ "${{ github.event.inputs.build_6_1 }}" == "true" ]; then versions+=('"6.1"'); fi
+          if [ "${{ github.event.inputs.build_6_6 }}" == "true" ]; then versions+=('"6.6"'); fi
+          if [ "${{ github.event.inputs.build_6_12 }}" == "true" ]; then versions+=('"6.12"'); fi
+          
+          # Chuyển đổi sang định dạng JSON cho Github Matrix
+          json="[$(IFS=,; echo "${versions[*]}")]"
+          echo "versions=$json" >> $GITHUB_OUTPUT
+
+  build:
+    needs: prepare-matrix
+    if: ${{ needs.prepare-matrix.outputs.versions != '[]' }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        version: ${{ fromJson(needs.prepare-matrix.outputs.versions) }}
+      fail-fast: false
+    
+    steps:
+    - name: Clone Source Code LKM của bạn
+      uses: actions/checkout@v3
+
+    - name: Ánh xạ Phiên bản với Nhánh GKI của Google
+      run: |
+        if [ "${{ matrix.version }}" == "5.10" ]; then echo "BRANCH=android12-5.10" >> $GITHUB_ENV; fi
+        if [ "${{ matrix.version }}" == "5.15" ]; then echo "BRANCH=android13-5.15" >> $GITHUB_ENV; fi
+        if [ "${{ matrix.version }}" == "6.1" ]; then echo "BRANCH=android14-6.1" >> $GITHUB_ENV; fi
+        if [ "${{ matrix.version }}" == "6.6" ]; then echo "BRANCH=android15-6.6" >> $GITHUB_ENV; fi
+        if [ "${{ matrix.version }}" == "6.12" ]; then echo "BRANCH=common-android15-6.12" >> $GITHUB_ENV; fi
+        # Lưu ý: nhánh 6.12 của Google có thể thay đổi tên tuỳ thời điểm, có thể sửa lại nếu Google đổi tên nhánh.
+
+    - name: Kích hoạt Cache (Khôi phục Source Kernel đã tải)
+      id: cache-kernel
+      if: ${{ github.event.inputs.update_source == 'false' }}
+      uses: actions/cache@v3
+      with:
+        path: kernel_workspace
+        key: kernel-source-${{ matrix.version }}-${{ env.BRANCH }}
+
+    - name: Tải Mã Nguồn Kernel & Cấu hình (Chỉ chạy khi không có Cache)
+      if: steps.cache-kernel.outputs.cache-hit != 'true' || github.event.inputs.update_source == 'true'
+      run: |
+        rm -rf kernel_workspace
+        mkdir kernel_workspace
+        cd kernel_workspace
+        
+        # Clone nông (Shallow Clone) - siêu nhanh
+        git clone --depth=1 -b ${{ env.BRANCH }} https://android.googlesource.com/kernel/common kernel_src
+        
+        # Cài đặt Toolchain cơ bản
+        sudo apt-get update && sudo apt-get install -y bc bison flex clang llvm lld gcc-aarch64-linux-gnu
+        
+        cd kernel_src
+        # Thiết lập Kernel Headers (gki_defconfig)
+        make ARCH=arm64 gki_defconfig
+        make ARCH=arm64 LLVM=1 CROSS_COMPILE=aarch64-linux-gnu- modules_prepare
+
+    - name: Cài đặt Toolchain (Chỉ chạy khi đã có Cache)
+      if: steps.cache-kernel.outputs.cache-hit == 'true' && github.event.inputs.update_source == 'false'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y bc bison flex clang llvm lld gcc-aarch64-linux-gnu
+
+    - name: Biên dịch Module LKM (.ko)
+      run: |
+        make -C kernel_workspace/kernel_src M=$GITHUB_WORKSPACE ARCH=arm64 LLVM=1 CROSS_COMPILE=aarch64-linux-gnu- modules
+
+    - name: Upload File .ko lên Github
+      uses: actions/upload-artifact@v3
+      with:
+        name: touch_remap_${{ matrix.version }}.ko
+        path: touch_remap.ko
