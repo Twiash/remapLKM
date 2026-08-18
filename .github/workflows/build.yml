@@ -61,6 +61,15 @@ jobs:
     - name: Clone Source Code LKM của bạn
       uses: actions/checkout@v4
 
+    - name: Tăng dung lượng RAM ảo (Swap Space) để chống tràn RAM khi Build LTO
+      run: |
+        sudo fallocate -l 10G /swapfile
+        sudo chmod 600 /swapfile
+        sudo mkswap /swapfile
+        sudo swapon /swapfile
+        sudo sysctl vm.swappiness=10
+        free -h
+
     - name: Ánh xạ Phiên bản với Nhánh GKI của Google
       run: |
         if [ "${{ matrix.version }}" == "5.10" ]; then echo "BRANCH=android12-5.10" >> $GITHUB_ENV; fi
@@ -91,12 +100,13 @@ jobs:
         # Cài đặt Toolchain cơ bản
         sudo apt-get update && sudo apt-get install -y bc bison flex clang llvm lld gcc-aarch64-linux-gnu libdw-dev libelf-dev
         
+        set -e -o pipefail
         cd kernel_src
         # Thiết lập Kernel Headers (gki_defconfig) nguyên bản từ Google
-        make ARCH=arm64 gki_defconfig 2>&1 | tee -a $GITHUB_WORKSPACE/build_debug.log
+        make ARCH=arm64 gki_defconfig
         
         # Build vmlinux và in-tree modules để hệ thống sinh file Module.symvers hoàn chỉnh
-        make ARCH=arm64 LLVM=1 CROSS_COMPILE=aarch64-linux-gnu- all -j$(nproc) 2>&1 | tee -a $GITHUB_WORKSPACE/build_debug.log
+        make ARCH=arm64 LLVM=1 CROSS_COMPILE=aarch64-linux-gnu- all -j$(nproc)
 
     - name: Lưu Cache Kernel Ngay Lập Tức (Chống tải lại nếu bước sau lỗi)
       if: steps.cache-kernel.outputs.cache-hit != 'true' || github.event.inputs.update_source == 'true'
@@ -113,7 +123,8 @@ jobs:
 
     - name: Biên dịch Module LKM (.ko)
       run: |
-        make -C kernel_workspace/kernel_src M=$GITHUB_WORKSPACE ARCH=arm64 LLVM=1 CROSS_COMPILE=aarch64-linux-gnu- modules 2>&1 | tee -a $GITHUB_WORKSPACE/build_debug.log
+        set -e -o pipefail
+        make -C kernel_workspace/kernel_src M=$GITHUB_WORKSPACE ARCH=arm64 LLVM=1 CROSS_COMPILE=aarch64-linux-gnu- modules
 
     - name: Upload File .ko lên Github
       if: success()
@@ -121,10 +132,3 @@ jobs:
       with:
         name: touch_remap_${{ matrix.version }}.ko
         path: touch_remap.ko
-
-    - name: Tải lên File Debug Log (Nếu có lỗi)
-      if: failure()
-      uses: actions/upload-artifact@v4
-      with:
-        name: error_log_${{ matrix.version }}.txt
-        path: build_debug.log
