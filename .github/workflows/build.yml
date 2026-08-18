@@ -101,8 +101,12 @@ jobs:
         # Thiết lập Kernel Headers (gki_defconfig) nguyên bản từ Google
         make ARCH=arm64 gki_defconfig
         
+        # Tắt WERROR để tránh các lỗi cảnh báo (như tràn stack frame) do dùng Clang Ubuntu
+        ./scripts/config --disable CONFIG_WERROR
+        make ARCH=arm64 olddefconfig
+        
         # Build vmlinux và in-tree modules để hệ thống sinh file Module.symvers hoàn chỉnh
-        make ARCH=arm64 LLVM=1 CROSS_COMPILE=aarch64-linux-gnu- all -j$(nproc)
+        make ARCH=arm64 LLVM=1 CROSS_COMPILE=aarch64-linux-gnu- all -j$(nproc) KCFLAGS="-Wno-error"
 
     - name: Lưu Cache Kernel Ngay Lập Tức (Chống tải lại nếu bước sau lỗi)
       if: steps.cache-kernel.outputs.cache-hit != 'true' || github.event.inputs.update_source == 'true'
