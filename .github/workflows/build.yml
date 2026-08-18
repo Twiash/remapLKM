@@ -93,10 +93,10 @@ jobs:
         
         cd kernel_src
         # Thiết lập Kernel Headers (gki_defconfig) nguyên bản từ Google
-        make ARCH=arm64 gki_defconfig
+        make ARCH=arm64 gki_defconfig 2>&1 | tee -a $GITHUB_WORKSPACE/build_debug.log
         
         # Build vmlinux và in-tree modules để hệ thống sinh file Module.symvers hoàn chỉnh
-        make ARCH=arm64 LLVM=1 CROSS_COMPILE=aarch64-linux-gnu- all -j$(nproc)
+        make ARCH=arm64 LLVM=1 CROSS_COMPILE=aarch64-linux-gnu- all -j$(nproc) 2>&1 | tee -a $GITHUB_WORKSPACE/build_debug.log
 
     - name: Lưu Cache Kernel Ngay Lập Tức (Chống tải lại nếu bước sau lỗi)
       if: steps.cache-kernel.outputs.cache-hit != 'true' || github.event.inputs.update_source == 'true'
@@ -113,10 +113,18 @@ jobs:
 
     - name: Biên dịch Module LKM (.ko)
       run: |
-        make -C kernel_workspace/kernel_src M=$GITHUB_WORKSPACE ARCH=arm64 LLVM=1 CROSS_COMPILE=aarch64-linux-gnu- modules
+        make -C kernel_workspace/kernel_src M=$GITHUB_WORKSPACE ARCH=arm64 LLVM=1 CROSS_COMPILE=aarch64-linux-gnu- modules 2>&1 | tee -a $GITHUB_WORKSPACE/build_debug.log
 
     - name: Upload File .ko lên Github
+      if: success()
       uses: actions/upload-artifact@v4
       with:
         name: touch_remap_${{ matrix.version }}.ko
         path: touch_remap.ko
+
+    - name: Tải lên File Debug Log (Nếu có lỗi)
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: error_log_${{ matrix.version }}.txt
+        path: build_debug.log
